@@ -134,7 +134,7 @@ const Header = ({ telemetry }) => (
       </div>
       <div className="flex items-center gap-1.5">
         <Crosshair className="h-3 w-3 text-emerald-400" />
-        <span className="text-slate-300">GPS / LiDAR ACTIVE</span>
+        <span className="text-slate-300">LiDAR ACTIVE</span>
       </div>
       <div className="border-l border-slate-800 pl-3 text-cyan-400 font-semibold">
         {telemetry.timestamp}
