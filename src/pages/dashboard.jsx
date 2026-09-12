@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   Activity,
   Eye,
@@ -7,10 +7,14 @@ import {
   Radio,
   Thermometer,
   Wifi,
-  Crosshair
+  Crosshair,
+  Zap,
+  ShieldCheck,
+  AlertTriangle,
+  Box,
+  ExternalLink
 } from 'lucide-react';
 
-// Placeholders for images (Replace these URLs with your local image paths or imports, e.g., import lidarImg from './lidar.jpg')
 const STATIC_PHOTOS = {
   lidarMap: 'https://res.cloudinary.com/dqeenwawp/image/upload/v1789061146/rover-lidar_hprvh5.jpg',
   nightVision: 'https://res.cloudinary.com/dqeenwawp/image/upload/v1789061145/rover-night-vision_krzs18.jpg',
@@ -18,316 +22,397 @@ const STATIC_PHOTOS = {
 };
 
 // ==========================================
-// CENTRAL TELEMETRY HOOK
+// STATIC TELEMETRY DATA
 // ==========================================
-const useRoverTelemetry = () => {
-  const [telemetry, setTelemetry] = useState({
-    rover: {
-      id: 'ROVER-01',
-      status: 'ACTIVE',
-      x: 124.52,
-      y: 87.31,
-      z: -42.18,
-      depth: 42.18,
-      heading: 127,
-      distanceTraveled: 1428.6,
-      mappingStatus: 'STATIC MAP',
-      battery: 88,
-    },
-    // The requested 8 sensors only
-    sensors: [
-      { id: 'air_quality', name: 'AQI', value: 92, unit: 'AQI', status: 'SAFE', safeRange: '0-100 AQI' },
-      { id: 'o2', name: 'O₂', value: 20.7, unit: '%', status: 'SAFE', safeRange: '19.5-23.5%' },
-      { id: 'co2', name: 'CO₂', value: 0.08, unit: '%', status: 'SAFE', safeRange: '0.00-0.10%' },
-      { id: 'temp', name: 'TEMP', value: 31.4, unit: '°C', status: 'WARNING', safeRange: '15-30 °C' },
-      { id: 'dust', name: 'DUST', value: 0.05, unit: 'mg/m³', status: 'SAFE', safeRange: '0-0.1 mg/m³' },
-      { id: 'humidity', name: 'HUMID', value: 68.2, unit: '%', status: 'SAFE', safeRange: '30-80%' },
-      { id: 'ch4', name: 'CH₄', value: 0.12, unit: '%', status: 'SAFE', safeRange: '0.00-0.50%' },
-      { id: 'h2s', name: 'H₂S', value: 0.02, unit: 'ppm', status: 'SAFE', safeRange: '0-1 ppm' },
-    ],
-    mesh: {
-      lastNode: 'NODE-07',
-      status: 'CONNECTED',
-      rssi: -67,
-      linkQuality: 92,
-      hops: 3,
-      distance: 184,
-    },
-    cameras: {
-      nv: { fps: 30, res: '1920×1080', status: 'STATIC CAPTURE', id: 'CAM-01' },
-      thermal: { fps: 30, res: '640×480', status: 'STATIC CAPTURE', id: 'CAM-02', maxTemp: 43.7, avgTemp: 29.4, minTemp: 21.2 }
-    },
-    timestamp: new Date().toLocaleTimeString()
-  });
+const STATIC_TELEMETRY = {
+  rover: {
+    id: 'rover',
+    status: 'ACTIVE',
+    x: 124.52,
+    y: 87.31,
+    z: -42.18,
+    depth: 42.18,
+    heading: 127,
+    distanceTraveled: 1428.6,
+    mappingStatus: 'STATIC MAP',
+    battery: 88,
+  },
+  sensors: [
+    { id: 'air_quality', name: 'AQI', value: 92, unit: 'AQI', status: 'SAFE', safeRange: '0-100 AQI', theme: 'cyan' },
+    { id: 'o2', name: 'O₂', value: 20.7, unit: '%', status: 'SAFE', safeRange: '19.5-23.5%', theme: 'emerald' },
+    { id: 'co2', name: 'CO₂', value: 0.08, unit: '%', status: 'SAFE', safeRange: '0.00-0.10%', theme: 'purple' },
+    { id: 'temp', name: 'TEMP', value: 31.4, unit: '°C', status: 'WARNING', safeRange: '15-30 °C', theme: 'amber' },
+    { id: 'dust', name: 'DUST', value: 0.05, unit: 'mg/m³', status: 'SAFE', safeRange: '0-0.1 mg/m³', theme: 'blue' },
+    { id: 'humidity', name: 'HUMID', value: 68.2, unit: '%', status: 'SAFE', safeRange: '30-80%', theme: 'teal' },
+    { id: 'ch4', name: 'CH₄', value: 0.12, unit: '%', status: 'SAFE', safeRange: '0.00-0.50%', theme: 'pink' },
+    { id: 'h2s', name: 'H₂S', value: 0.02, unit: 'ppm', status: 'SAFE', safeRange: '0-1 ppm', theme: 'indigo' },
+  ],
+  mesh: {
+    lastNode: 'NODE-07',
+    status: 'CONNECTED',
+    rssi: -67,
+    linkQuality: 92,
+    hops: 3,
+    distance: 184,
+  },
+  cameras: {
+    nv: { fps: 30, res: '1920×1080', status: 'STATIC CAPTURE', id: 'CAM-01' },
+    thermal: { fps: 30, res: '640×480', status: 'STATIC CAPTURE', id: 'CAM-02', maxTemp: 43.7, avgTemp: 29.4, minTemp: 21.2 }
+  }
+};
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTelemetry((prev) => {
-        const timeStr = new Date().toLocaleTimeString();
-        const deltaX = (Math.random() - 0.48) * 0.1;
-        const deltaY = (Math.random() - 0.45) * 0.1;
-        const newX = parseFloat((prev.rover.x + deltaX).toFixed(2));
-        const newY = parseFloat((prev.rover.y + deltaY).toFixed(2));
+// ==========================================
+// MESHNET LOGO COMPONENT
+// ==========================================
+const MeshnetLogo = () => (
+  <div className="flex items-center gap-2.5">
+    <div className="relative flex items-center justify-center w-9 h-9 bg-slate-900 rounded-xl shadow-[4px_4px_10px_#c2cbd9,-4px_-4px_10px_#ffffff] p-1.5 border border-indigo-500/30">
+      <svg viewBox="0 0 100 100" className="w-full h-full text-cyan-400">
+        <path
+          d="M 15 80 L 15 25 L 50 60 L 85 25 L 85 80"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="10"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M 15 80 L 50 60 L 85 80"
+          fill="none"
+          stroke="#6366f1"
+          strokeWidth="6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <circle cx="15" cy="25" r="9" className="fill-indigo-500 stroke-white stroke-2" />
+        <circle cx="85" cy="25" r="9" className="fill-indigo-500 stroke-white stroke-2" />
+        <circle cx="50" cy="60" r="9" className="fill-cyan-400 stroke-white stroke-2" />
+        <circle cx="15" cy="80" r="7" className="fill-cyan-300" />
+        <circle cx="85" cy="80" r="7" className="fill-cyan-300" />
+      </svg>
+    </div>
+    <div className="flex flex-col leading-none">
+      <span className="font-black text-lg tracking-wider bg-gradient-to-r from-indigo-700 via-indigo-600 to-cyan-600 bg-clip-text text-transparent">
+        MESHNET
+      </span>
+      <span className="text-[9px] font-bold text-slate-400 tracking-widest uppercase">
+        System Node
+      </span>
+    </div>
+  </div>
+);
 
-        const updatedSensors = prev.sensors.map(s => {
-          let jitter = (Math.random() - 0.5) * (s.value * 0.02);
-          let newVal = parseFloat((s.value + jitter).toFixed(2));
-          let status = s.status;
-          if (s.id === 'temp') status = newVal > 31.0 ? 'WARNING' : 'SAFE';
-          return { ...s, value: newVal, status };
-        });
+// ==========================================
+// CLAYMORPHISM STYLES & DICTIONARY
+// ==========================================
+const clayBase = {
+  container: 'bg-[#eef2f9] rounded-3xl shadow-[12px_12px_24px_#c2cbd9,-12px_-12px_24px_#ffffff]',
+  insetFrame: 'rounded-2xl shadow-[inset_6px_6px_12px_#b8c4d6,inset_-6px_-6px_12px_#ffffff]',
+  pillBase: 'rounded-full transition-all duration-300 font-bold',
+};
 
-        return {
-          ...prev,
-          timestamp: timeStr,
-          rover: {
-            ...prev.rover,
-            x: newX,
-            y: newY,
-          },
-          sensors: updatedSensors,
-          mesh: {
-            ...prev.mesh,
-            rssi: Math.max(-90, Math.min(-50, prev.mesh.rssi + Math.floor((Math.random() - 0.5) * 3))),
-          }
-        };
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  return telemetry;
+const themeStyles = {
+  indigo: {
+    bg: 'bg-indigo-600 text-white',
+    shadow: 'shadow-[6px_6px_14px_rgba(79,70,229,0.4),inset_2px_2px_4px_rgba(255,255,255,0.4),inset_-3px_-3px_6px_rgba(0,0,0,0.2)]',
+    badge: 'bg-indigo-100 text-indigo-700 shadow-[inset_2px_2px_4px_#c7d2fe,inset_-2px_-2px_4px_#ffffff]',
+  },
+  cyan: {
+    bg: 'bg-cyan-500 text-white',
+    shadow: 'shadow-[6px_6px_14px_rgba(6,182,212,0.4),inset_2px_2px_4px_rgba(255,255,255,0.5),inset_-3px_-3px_6px_rgba(0,0,0,0.2)]',
+    badge: 'bg-cyan-100 text-cyan-800 shadow-[inset_2px_2px_4px_#a5f3fc,inset_-2px_-2px_4px_#ffffff]',
+  },
+  emerald: {
+    bg: 'bg-emerald-500 text-white',
+    shadow: 'shadow-[6px_6px_14px_rgba(16,185,129,0.4),inset_2px_2px_4px_rgba(255,255,255,0.5),inset_-3px_-3px_6px_rgba(0,0,0,0.2)]',
+    badge: 'bg-emerald-100 text-emerald-800 shadow-[inset_2px_2px_4px_#a7f3d0,inset_-2px_-2px_4px_#ffffff]',
+  },
+  amber: {
+    bg: 'bg-amber-500 text-white',
+    shadow: 'shadow-[6px_6px_14px_rgba(245,158,11,0.4),inset_2px_2px_4px_rgba(255,255,255,0.5),inset_-3px_-3px_6px_rgba(0,0,0,0.2)]',
+    badge: 'bg-amber-100 text-amber-800 shadow-[inset_2px_2px_4px_#fde68a,inset_-2px_-2px_4px_#ffffff]',
+  },
+  rose: {
+    bg: 'bg-rose-500 text-white',
+    shadow: 'shadow-[6px_6px_14px_rgba(244,63,94,0.4),inset_2px_2px_4px_rgba(255,255,255,0.5),inset_-3px_-3px_6px_rgba(0,0,0,0.2)]',
+    badge: 'bg-rose-100 text-rose-800 shadow-[inset_2px_2px_4px_#fecdd3,inset_-2px_-2px_4px_#ffffff]',
+  },
+  purple: {
+    bg: 'bg-purple-600 text-white',
+    shadow: 'shadow-[6px_6px_14px_rgba(147,51,234,0.4),inset_2px_2px_4px_rgba(255,255,255,0.4),inset_-3px_-3px_6px_rgba(0,0,0,0.2)]',
+    badge: 'bg-purple-100 text-purple-800 shadow-[inset_2px_2px_4px_#e9d5ff,inset_-2px_-2px_4px_#ffffff]',
+  },
+  pink: {
+    bg: 'bg-pink-500 text-white',
+    shadow: 'shadow-[6px_6px_14px_rgba(236,72,153,0.4),inset_2px_2px_4px_rgba(255,255,255,0.5),inset_-3px_-3px_6px_rgba(0,0,0,0.2)]',
+    badge: 'bg-pink-100 text-pink-800 shadow-[inset_2px_2px_4px_#fbcfe8,inset_-2px_-2px_4px_#ffffff]',
+  },
+  blue: {
+    bg: 'bg-blue-600 text-white',
+    shadow: 'shadow-[6px_6px_14px_rgba(37,99,235,0.4),inset_2px_2px_4px_rgba(255,255,255,0.4),inset_-3px_-3px_6px_rgba(0,0,0,0.2)]',
+    badge: 'bg-blue-100 text-blue-800 shadow-[inset_2px_2px_4px_#bfdbfe,inset_-2px_-2px_4px_#ffffff]',
+  },
+  teal: {
+    bg: 'bg-teal-500 text-white',
+    shadow: 'shadow-[6px_6px_14px_rgba(20,184,166,0.4),inset_2px_2px_4px_rgba(255,255,255,0.5),inset_-3px_-3px_6px_rgba(0,0,0,0.2)]',
+    badge: 'bg-teal-100 text-teal-800 shadow-[inset_2px_2px_4px_#99f6e4,inset_-2px_-2px_4px_#ffffff]',
+  }
 };
 
 // ==========================================
 // SUB-COMPONENTS
 // ==========================================
 
-const Header = ({ telemetry }) => (
-  <header className="h-12 border-b border-cyan-900/40 bg-slate-950/90 px-4 flex items-center justify-between font-mono text-xs shrink-0 select-none">
-    <div className="flex items-center gap-3">
-      <div className="flex h-7 w-7 items-center justify-center rounded border border-cyan-500/40 bg-cyan-950/30 text-cyan-400">
-        <Radio className="h-3.5 w-3.5 animate-pulse" />
-      </div>
-      <div>
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-xs tracking-wider text-slate-100">MESHNET</span>
-          <span className="rounded bg-cyan-950 px-1.5 py-0.5 text-[9px] text-cyan-400 border border-cyan-800/50">
-            {telemetry.rover.id}
-          </span>
-        </div>
-      </div>
+const Header = ({ telemetry, onNavigate3D }) => (
+  <header className={`h-16 px-6 mx-3 mt-3 flex items-center justify-between shrink-0 select-none ${clayBase.container}`}>
+    <div className="flex items-center gap-4">
+      <MeshnetLogo />
+      <span className={`px-3 py-1 text-xs font-black ${themeStyles.indigo.badge} rounded-full`}>
+        {telemetry.rover.id}
+      </span>
     </div>
 
-    <div className="hidden md:flex items-center gap-5 text-[10px]">
-      <div className="flex items-center gap-1.5">
-        <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+    <div className="hidden md:flex items-center gap-4 text-xs font-black">
+      <div className={`flex items-center gap-2 px-4 py-2 ${themeStyles.emerald.bg} ${themeStyles.emerald.shadow} ${clayBase.pillBase}`}>
+        <span className="relative flex h-2.5 w-2.5">
+          <span className="inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
         </span>
-        <span className="text-slate-300">ROVER ONLINE</span>
+        <span>ROVER ONLINE</span>
       </div>
-      <div className="flex items-center gap-1.5">
-        <Wifi className="h-3 w-3 text-cyan-400" />
-        <span className="text-slate-300">MESH CONNECTED</span>
+
+      <div className={`flex items-center gap-2 px-4 py-2 ${themeStyles.cyan.bg} ${themeStyles.cyan.shadow} ${clayBase.pillBase}`}>
+        <Wifi className="h-4 w-4" />
+        <span>MESH CONNECTED</span>
       </div>
-      <div className="flex items-center gap-1.5">
-        <Crosshair className="h-3 w-3 text-emerald-400" />
-        <span className="text-slate-300">LiDAR ACTIVE</span>
+
+      <div className={`flex items-center gap-2 px-4 py-2 ${themeStyles.purple.bg} ${themeStyles.purple.shadow} ${clayBase.pillBase}`}>
+        <Crosshair className="h-4 w-4" />
+        <span>LiDAR ACTIVE</span>
       </div>
-      <div className="border-l border-slate-800 pl-3 text-cyan-400 font-semibold">
-        {telemetry.timestamp}
-      </div>
+
+      {/* 3D VIEW PAGE NAVIGATION LINK BUTTON */}
+      <a
+        href="/rover"
+        onClick={(e) => {
+          if (onNavigate3D) {
+            e.preventDefault();
+            onNavigate3D();
+          }
+        }}
+        className={`flex items-center gap-2 px-4 py-2 ${themeStyles.indigo.bg} ${themeStyles.indigo.shadow} ${clayBase.pillBase} hover:opacity-90 active:scale-95 cursor-pointer text-white`}
+      >
+        <Box className="h-4 w-4" />
+        <span>ROVER 3D VIEW</span>
+        <ExternalLink className="h-3 w-3 opacity-70" />
+      </a>
     </div>
   </header>
 );
 
-// LiDAR Box displaying static photo
 const LidarMapBox = ({ rover }) => {
   return (
-    <div className="relative flex flex-col h-full bg-slate-950 border border-slate-800 overflow-hidden select-none">
-      <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/80 px-2.5 py-1 font-mono text-[11px] shrink-0">
-        <div className="flex items-center gap-1.5 text-cyan-400 font-bold">
-          <Layers className="h-3.5 w-3.5" />
+    <div className={`relative flex flex-col h-full overflow-hidden select-none p-3.5 ${clayBase.container}`}>
+      <div className="flex items-center justify-between px-2 py-1 shrink-0 mb-1">
+        <div className="flex items-center gap-2 text-slate-800 font-black text-xs">
+          <div className={`p-2 ${themeStyles.blue.bg} ${themeStyles.blue.shadow} ${clayBase.pillBase}`}>
+            <Layers className="h-4 w-4" />
+          </div>
           <span>3D LiDAR MAPPING PHOTO</span>
         </div>
-        <span className="text-[9px] text-emerald-400 border border-emerald-900/60 bg-emerald-950/40 px-1.5 py-0.2">
+        <span className={`text-xs font-black px-4 py-1.5 ${themeStyles.emerald.bg} ${themeStyles.emerald.shadow} ${clayBase.pillBase}`}>
           {rover.mappingStatus}
         </span>
       </div>
 
-      <div className="relative flex-1 min-h-0 bg-[#030712] overflow-hidden">
+      <div className={`relative flex-1 min-h-0 overflow-hidden ${clayBase.insetFrame}`}>
         <img
           src={STATIC_PHOTOS.lidarMap}
           alt="3D LiDAR Map"
-          className="w-full h-full object-cover opacity-80"
+          className="w-full h-full object-cover"
         />
 
-        <div className="absolute top-2 left-2 bg-slate-950/90 border border-cyan-900/40 p-2 font-mono text-[10px] text-slate-300 space-y-0.5 backdrop-blur-sm pointer-events-none">
-          <div className="text-cyan-400 font-bold border-b border-slate-800 pb-0.5 mb-1">POSITION MATRIX</div>
-          <div className="flex justify-between gap-3"><span>X:</span> <span className="text-white">{rover.x} m</span></div>
-          <div className="flex justify-between gap-3"><span>Y:</span> <span className="text-white">{rover.y} m</span></div>
-          <div className="flex justify-between gap-3"><span>DEPTH:</span> <span className="text-emerald-400">{rover.depth} m</span></div>
-          <div className="flex justify-between gap-3"><span>HEADING:</span> <span className="text-cyan-400">{rover.heading}°</span></div>
+        <div className={`absolute top-4 left-4 bg-[#eef2f9]/90 backdrop-blur-md p-3.5 font-mono text-xs text-slate-800 space-y-1 rounded-2xl shadow-[8px_8px_16px_rgba(0,0,0,0.25),-4px_-4px_8px_#ffffff] border border-white/60`}>
+          <div className="text-indigo-600 font-black text-xs border-b border-slate-300 pb-1 mb-1.5 flex items-center gap-1.5">
+            <Zap className="h-3.5 w-3.5 fill-indigo-600" /> POSITION MATRIX
+          </div>
+          <div className="flex justify-between gap-4 font-bold"><span>X:</span> <span className="text-blue-600 font-black">{rover.x} m</span></div>
+          <div className="flex justify-between gap-4 font-bold"><span>Y:</span> <span className="text-blue-600 font-black">{rover.y} m</span></div>
+          <div className="flex justify-between gap-4 font-bold"><span>DEPTH:</span> <span className="text-emerald-600 font-black">{rover.depth} m</span></div>
+          <div className="flex justify-between gap-4 font-bold"><span>HEADING:</span> <span className="text-purple-600 font-black">{rover.heading}°</span></div>
         </div>
       </div>
     </div>
   );
 };
 
-// Sensor Panel (Only AQI, O2, CO2, TEMP, DUST, HUMID, CH4, H2S)
-const SensorPanel = ({ sensors, timestamp }) => (
-  <div className="flex flex-col h-full bg-slate-950 border border-slate-800 overflow-hidden">
-    <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/80 px-2.5 py-1 font-mono text-[11px] shrink-0">
-      <div className="flex items-center gap-1.5 text-cyan-400 font-bold">
-        <Activity className="h-3.5 w-3.5" />
+const SensorPanel = ({ sensors }) => (
+  <div className={`flex flex-col h-full overflow-hidden p-3.5 ${clayBase.container}`}>
+    <div className="flex items-center justify-between px-2 py-1 shrink-0 mb-2">
+      <div className="flex items-center gap-2 text-slate-800 font-black text-xs">
+        <div className={`p-2 ${themeStyles.cyan.bg} ${themeStyles.cyan.shadow} ${clayBase.pillBase}`}>
+          <Activity className="h-4 w-4" />
+        </div>
         <span>LIVE SENSOR TELEMETRY</span>
       </div>
-      <span className="text-[9px] text-slate-500">{timestamp}</span>
     </div>
 
-    <div className="grid grid-cols-4 gap-2 p-2 font-mono flex-1 overflow-hidden">
-      {sensors.map((s) => (
-        <div key={s.id} className="flex flex-col justify-between p-2 bg-slate-900/50 border border-slate-800/80 min-h-0">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] text-slate-400 font-bold truncate">{s.name}</span>
-            <span className={`text-[8px] font-bold px-1 ${s.status === 'SAFE' ? 'text-emerald-400 bg-emerald-950/60' : 'text-amber-400 bg-amber-950/60 animate-pulse'}`}>
-              {s.status}
-            </span>
+    <div className="flex-1 overflow-y-auto pr-1 space-y-2 select-none">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-0.5">
+        {sensors.map((s) => (
+          <div
+            key={s.id}
+            className={`flex flex-col justify-between p-2.5 bg-[#f8fafc] rounded-2xl shadow-[4px_4px_10px_#c2cbd9,-4px_-4px_10px_#ffffff] border border-white`}
+          >
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-xs text-slate-700 font-black truncate">{s.name}</span>
+              <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shrink-0 ${
+                s.status === 'SAFE'
+                  ? `${themeStyles.emerald.bg} ${themeStyles.emerald.shadow}`
+                  : `${themeStyles.amber.bg} ${themeStyles.amber.shadow}`
+              }`}>
+                {s.status === 'SAFE' ? <ShieldCheck className="h-2.5 w-2.5" /> : <AlertTriangle className="h-2.5 w-2.5" />}
+                {s.status}
+              </span>
+            </div>
+            
+            <div className="my-1 text-base font-black text-slate-800 truncate tracking-tight">
+              {s.value} <span className="text-[10px] font-bold text-slate-400">{s.unit}</span>
+            </div>
+
+            <div className={`text-[8px] text-slate-500 font-mono font-bold px-1.5 py-0.5 rounded-lg bg-slate-100 shadow-[inset_1.5px_1.5px_3px_#cbd5e1] truncate`}>
+              {s.safeRange}
+            </div>
           </div>
-          <div className="my-1 text-base font-bold text-slate-100 truncate">
-            {s.value} <span className="text-[10px] font-normal text-slate-400">{s.unit}</span>
-          </div>
-          <div className="text-[8px] text-slate-500 border-t border-slate-800/60 pt-0.5 truncate">
-            {s.safeRange}
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   </div>
 );
 
 const MeshNetwork = ({ mesh }) => (
-  <div className="flex flex-col h-full bg-slate-950 border border-slate-800 font-mono text-[11px] overflow-hidden">
-    <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/80 px-2.5 py-1 shrink-0">
-      <div className="flex items-center gap-1.5 text-cyan-400 font-bold">
-        <Network className="h-3.5 w-3.5" />
-        <span>MESH NETWORK</span>
+  <div className={`flex flex-col h-full font-sans overflow-hidden p-3.5 ${clayBase.container}`}>
+    <div className="flex items-center justify-between px-2 py-1 shrink-0 mb-1">
+      <div className="flex items-center gap-2 text-slate-800 font-black text-xs">
+        <div className={`p-2 ${themeStyles.teal.bg} ${themeStyles.teal.shadow} ${clayBase.pillBase}`}>
+          <Network className="h-4 w-4" />
+        </div>
+        <span>MESH NETWORK TELEMETRY</span>
       </div>
-      <span className="text-[9px] text-emerald-400 bg-emerald-950/30 px-1.5">{mesh.status}</span>
+      <span className={`text-xs font-black px-3 py-1 ${themeStyles.teal.bg} ${themeStyles.teal.shadow} ${clayBase.pillBase}`}>
+        {mesh.status}
+      </span>
     </div>
 
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 p-2 flex-1 items-center">
-      <div className="flex justify-between items-center p-1.5 bg-slate-900/40 border border-slate-800">
-        <span className="text-slate-400 text-[10px]">LAST NODE:</span>
-        <span className="text-cyan-400 font-bold text-[10px]">{mesh.lastNode}</span>
+    <div className="flex flex-wrap items-center justify-between gap-2 p-1 flex-1 overflow-y-auto">
+      <div className={`flex flex-1 min-w-[140px] justify-between items-center px-3 py-2 bg-indigo-50/80 rounded-2xl shadow-[4px_4px_8px_#c2cbd9,-4px_-4px_8px_#ffffff] border border-white`}>
+        <span className="text-slate-500 text-xs font-bold">LAST NODE:</span>
+        <span className="text-indigo-600 font-black text-xs bg-indigo-100 px-2.5 py-0.5 rounded-full">{mesh.lastNode}</span>
       </div>
 
-      <div className="flex justify-between items-center p-1.5 bg-slate-900/40 border border-slate-800">
-        <span className="text-slate-400 text-[10px]">RSSI / HOPS:</span>
-        <span className="text-emerald-400 font-bold text-[10px]">{mesh.rssi} dBm ({mesh.hops} Hops)</span>
+      <div className={`flex flex-1 min-w-[170px] justify-between items-center px-3 py-2 bg-emerald-50/80 rounded-2xl shadow-[4px_4px_8px_#c2cbd9,-4px_-4px_8px_#ffffff] border border-white`}>
+        <span className="text-slate-500 text-xs font-bold">RSSI / HOPS:</span>
+        <span className="text-emerald-600 font-black text-xs bg-emerald-100 px-2.5 py-0.5 rounded-full">{mesh.rssi} dBm ({mesh.hops} Hops)</span>
       </div>
 
-      <div className="flex items-center justify-center gap-1 bg-slate-900/30 p-1 border border-slate-800/60 text-[9px]">
-        <span className="px-1 bg-slate-800 text-slate-300">BASE</span>
-        <span className="h-0.5 w-2 bg-emerald-500"></span>
-        <span className="px-1 bg-cyan-950 text-cyan-400 font-bold">NODE-07</span>
-        <span className="h-0.5 w-2 bg-cyan-400"></span>
-        <span className="px-1 bg-emerald-950 text-emerald-400 font-bold">ROVER</span>
+      <div className={`flex items-center justify-center gap-1.5 bg-[#f8fafc] py-2 px-3 rounded-2xl shadow-[inset_3px_3px_6px_#cbd5e1,inset_-3px_-3px_6px_#ffffff] text-xs font-mono font-black min-w-[200px]`}>
+        <span className={`px-2 py-0.5 ${themeStyles.blue.bg} ${themeStyles.blue.shadow} rounded-lg text-[10px]`}>BASE</span>
+        <span className="h-1 w-3 bg-cyan-400 rounded-full"></span>
+        <span className={`px-2 py-0.5 ${themeStyles.cyan.bg} ${themeStyles.cyan.shadow} rounded-lg text-[10px]`}>NODE-07</span>
+        <span className="h-1 w-3 bg-emerald-400 rounded-full"></span>
+        <span className={`px-2 py-0.5 ${themeStyles.emerald.bg} ${themeStyles.emerald.shadow} rounded-lg text-[10px]`}>ROVER</span>
       </div>
     </div>
   </div>
 );
 
-// Night Vision Box displaying static photo
-const NightVisionCameraBox = ({ camera, timestamp }) => {
-  return (
-    <div className="flex flex-col h-full bg-slate-950 border border-slate-800 select-none font-mono overflow-hidden">
-      <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/80 px-2.5 py-1 text-[11px] shrink-0">
-        <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
-          <Eye className="h-3.5 w-3.5" />
-          <span>NIGHT VISION [{camera.id}]</span>
+const NightVisionCameraBox = ({ camera }) => (
+  <div className={`flex flex-col h-full select-none font-sans overflow-hidden p-3.5 ${clayBase.container}`}>
+    <div className="flex items-center justify-between px-2 py-1 text-xs shrink-0 mb-1">
+      <div className="flex items-center gap-2 text-slate-800 font-black">
+        <div className={`p-2 ${themeStyles.emerald.bg} ${themeStyles.emerald.shadow} ${clayBase.pillBase}`}>
+          <Eye className="h-4 w-4" />
         </div>
-        <span className="text-[9px] text-emerald-400">● {camera.status}</span>
+        <span>NIGHT VISION [{camera.id}]</span>
       </div>
+      <span className={`text-xs font-black px-3 py-1 ${themeStyles.emerald.bg} ${themeStyles.emerald.shadow} ${clayBase.pillBase}`}>
+        ● {camera.status}
+      </span>
+    </div>
 
-      <div className="relative flex-1 min-h-0 bg-emerald-950/20 overflow-hidden">
-        <img
-          src={STATIC_PHOTOS.nightVision}
-          alt="Night Vision Photo"
-          className="w-full h-full object-cover opacity-90 hue-rotate-90 saturate-200"
-        />
+    <div className={`relative flex-1 min-h-0 overflow-hidden ${clayBase.insetFrame}`}>
+      <img
+        src={STATIC_PHOTOS.nightVision}
+        alt="Night Vision Photo"
+        className="w-full h-full object-cover"
+      />
 
-        <div className="absolute top-1.5 left-1.5 text-[9px] text-emerald-400 bg-slate-950/80 p-1 border border-emerald-900/40">
-          {camera.res} | {camera.fps} FPS
-        </div>
-        <div className="absolute bottom-1.5 right-1.5 text-[9px] text-emerald-400 bg-slate-950/80 px-1">{timestamp}</div>
+      <div className={`absolute top-3 left-3 text-[11px] font-mono font-black ${themeStyles.emerald.bg} ${themeStyles.emerald.shadow} px-3 py-1 rounded-full`}>
+        {camera.res} | {camera.fps} FPS
       </div>
     </div>
-  );
-};
+  </div>
+);
 
-// Thermal Camera Box displaying static photo
-const ThermalCameraBox = ({ camera }) => {
-  return (
-    <div className="flex flex-col h-full bg-slate-950 border border-slate-800 select-none font-mono overflow-hidden">
-      <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/80 px-2.5 py-1 text-[11px] shrink-0">
-        <div className="flex items-center gap-1.5 text-cyan-400 font-bold">
-          <Thermometer className="h-3.5 w-3.5" />
-          <span>THERMAL CAMERA [{camera.id}]</span>
+const ThermalCameraBox = ({ camera }) => (
+  <div className={`flex flex-col h-full select-none font-sans overflow-hidden p-3.5 ${clayBase.container}`}>
+    <div className="flex items-center justify-between px-2 py-1 text-xs shrink-0 mb-1">
+      <div className="flex items-center gap-2 text-slate-800 font-black">
+        <div className={`p-2 ${themeStyles.rose.bg} ${themeStyles.rose.shadow} ${clayBase.pillBase}`}>
+          <Thermometer className="h-4 w-4" />
         </div>
-        <span className="text-[9px] text-rose-400">● {camera.status}</span>
+        <span>THERMAL CAMERA [{camera.id}]</span>
       </div>
+      <span className={`text-xs font-black px-3 py-1 ${themeStyles.rose.bg} ${themeStyles.rose.shadow} ${clayBase.pillBase}`}>
+        ● {camera.status}
+      </span>
+    </div>
 
-      <div className="relative flex-1 min-h-0 bg-indigo-950/30 overflow-hidden">
-        <img
-          src={STATIC_PHOTOS.thermal}
-          alt="Thermal Camera Photo"
-          className="w-full h-full object-cover opacity-85 saturate-200"
-        />
+    <div className={`relative flex-1 min-h-0 overflow-hidden ${clayBase.insetFrame}`}>
+      <img
+        src={STATIC_PHOTOS.thermal}
+        alt="Thermal Camera Photo"
+        className="w-full h-full object-cover"
+      />
 
-        <div className="absolute top-1.5 left-1.5 text-[9px] text-cyan-300 bg-slate-950/80 p-1 border border-cyan-900/40">
-          <div>MAX: <span className="text-amber-400">{camera.maxTemp}°C</span></div>
-          <div>AVG: <span className="text-white">{camera.avgTemp}°C</span></div>
-        </div>
+      <div className={`absolute top-3 left-3 text-xs font-mono bg-[#eef2f9]/90 backdrop-blur-md p-2.5 rounded-2xl shadow-[6px_6px_12px_rgba(0,0,0,0.3)] border border-white/60 space-y-0.5`}>
+        <div className="text-slate-700 font-bold">MAX: <span className="text-rose-600 font-black">{camera.maxTemp}°C</span></div>
+        <div className="text-slate-700 font-bold">AVG: <span className="text-indigo-600 font-black">{camera.avgTemp}°C</span></div>
       </div>
     </div>
-  );
-};
+  </div>
+);
 
 // ==========================================
 // MAIN DASHBOARD EXPORT
 // ==========================================
-export default function Dashboard() {
-  const telemetry = useRoverTelemetry();
+export default function Dashboard({ onNavigate3D }) {
+  const telemetry = STATIC_TELEMETRY;
 
   return (
-    <div className="h-screen w-screen bg-slate-950 text-slate-100 flex flex-col font-sans overflow-hidden">
-      <Header telemetry={telemetry} />
+    <div className="h-screen w-screen bg-[#e2e8f0] text-slate-800 flex flex-col font-sans overflow-hidden">
+      <Header telemetry={telemetry} onNavigate3D={onNavigate3D} />
 
-      {/* Grid Layout: Left (60%) : Right (40%) */}
-      <main className="flex-1 p-2 grid grid-cols-1 lg:grid-cols-10 gap-2 min-h-0">
+      <main className="flex-1 p-3 grid grid-cols-1 lg:grid-cols-10 gap-3 min-h-0 overflow-hidden">
         
-        {/* LEFT PANEL (60% Width = 6 / 10 cols) */}
-        <section className="lg:col-span-6 grid grid-rows-12 gap-2 h-full min-h-0">
-          <div className="row-span-6 min-h-0">
+        {/* LEFT PANEL */}
+        <section className="lg:col-span-6 grid grid-rows-12 gap-3 h-full min-h-0">
+          <div className="row-span-5 min-h-0">
             <LidarMapBox rover={telemetry.rover} />
           </div>
 
           <div className="row-span-4 min-h-0">
-            <SensorPanel sensors={telemetry.sensors} timestamp={telemetry.timestamp} />
+            <SensorPanel sensors={telemetry.sensors} />
           </div>
 
-          <div className="row-span-2 min-h-0">
+          <div className="row-span-3 min-h-0">
             <MeshNetwork mesh={telemetry.mesh} />
           </div>
         </section>
 
-        {/* RIGHT PANEL (40% Width = 4 / 10 cols) */}
-        <section className="lg:col-span-4 grid grid-rows-2 gap-2 h-full min-h-0">
+        {/* RIGHT PANEL */}
+        <section className="lg:col-span-4 grid grid-rows-2 gap-3 h-full min-h-0">
           <div className="row-span-1 min-h-0">
-            <NightVisionCameraBox camera={telemetry.cameras.nv} timestamp={telemetry.timestamp} />
+            <NightVisionCameraBox camera={telemetry.cameras.nv} />
           </div>
           <div className="row-span-1 min-h-0">
             <ThermalCameraBox camera={telemetry.cameras.thermal} />
