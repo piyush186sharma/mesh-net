@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import {
   Activity,
   Eye,
@@ -191,20 +192,19 @@ const Header = ({ telemetry, onNavigate3D }) => (
       </div>
 
       {/* 3D VIEW PAGE NAVIGATION LINK BUTTON */}
-      <a
-        href="/rover"
-        onClick={(e) => {
-          if (onNavigate3D) {
-            e.preventDefault();
-            onNavigate3D();
-          }
-        }}
-        className={`flex items-center gap-2 px-4 py-2 ${themeStyles.indigo.bg} ${themeStyles.indigo.shadow} ${clayBase.pillBase} hover:opacity-90 active:scale-95 cursor-pointer text-white`}
-      >
-        <Box className="h-4 w-4" />
-        <span>ROVER 3D VIEW</span>
-        <ExternalLink className="h-3 w-3 opacity-70" />
-      </a>
+      <Link
+  to="/rover"
+  onClick={(e) => {
+    if (onNavigate3D) {
+      onNavigate3D();
+    }
+  }}
+  className={`flex items-center gap-2 px-4 py-2 ${themeStyles.indigo.bg} ${themeStyles.indigo.shadow} ${clayBase.pillBase} hover:opacity-90 active:scale-95 cursor-pointer text-white`}
+>
+  <Box className="h-4 w-4" />
+  <span>ROVER 3D VIEW</span>
+  <ExternalLink className="h-3 w-3 opacity-70" />
+</Link>
     </div>
   </header>
 );
