@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Activity,
@@ -19,22 +19,17 @@ import {
   Filter,
   UserCheck,
   Scan,
-  ChevronDown
+  ChevronDown,
+  Video
 } from 'lucide-react';
 
 const FontLoader = () => (
   <style>{`
     @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Orbitron:wght@600;800;900&family=Share+Tech+Mono&display=swap');
     
-    .font-tech-header {
-      font-family: 'Orbitron', sans-serif;
-    }
-    .font-tech-body {
-      font-family: 'Chakra Petch', sans-serif;
-    }
-    .font-tech-mono {
-      font-family: 'Share Tech Mono', monospace;
-    }
+    .font-tech-header { font-family: 'Orbitron', sans-serif; }
+    .font-tech-body { font-family: 'Chakra Petch', sans-serif; }
+    .font-tech-mono { font-family: 'Share Tech Mono', monospace; }
 
     @keyframes floatSlow {
       0%, 100% { transform: translateY(0px) rotate(0deg) scale(1); }
@@ -49,33 +44,18 @@ const FontLoader = () => (
       50% { transform: translateY(-20px) rotate(12deg); }
     }
 
-    .animate-float-slow {
-      animation: floatSlow 14s ease-in-out infinite;
-    }
-    .animate-float-medium {
-      animation: floatMedium 10s ease-in-out infinite;
-    }
-    .animate-float-fast {
-      animation: floatFast 7s ease-in-out infinite;
-    }
+    .animate-float-slow { animation: floatSlow 14s ease-in-out infinite; }
+    .animate-float-medium { animation: floatMedium 10s ease-in-out infinite; }
+    .animate-float-fast { animation: floatFast 7s ease-in-out infinite; }
   `}</style>
 );
 
 const FloatingGlassBackground = () => (
   <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-    {/* Dark Glass Orb 1 - Top Left */}
     <div className="absolute -top-12 left-10 w-72 h-72 bg-black/40 backdrop-blur-xl border border-white/10 rounded-full shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] animate-float-slow" />
-    
-    {/* Dark Glass Rect 2 - Top Right */}
     <div className="absolute top-20 right-16 w-96 h-64 bg-slate-950/30 backdrop-blur-2xl border border-slate-700/30 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] animate-float-medium" />
-
-    {/* Dark Glass Pill 3 - Bottom Left */}
     <div className="absolute bottom-16 left-24 w-80 h-40 bg-black/35 backdrop-blur-lg border border-white/10 rounded-full shadow-2xl animate-float-fast" />
-
-    {/* Dark Glass Card 4 - Bottom Right */}
     <div className="absolute -bottom-10 right-1/4 w-80 h-80 bg-slate-900/40 backdrop-blur-2xl border border-indigo-500/20 rounded-3xl animate-float-slow" />
-
-    {/* Subtle Glow Accents in Center Background */}
     <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-3xl" />
   </div>
 );
@@ -572,6 +552,102 @@ const MeshNetwork = ({ mesh }) => (
   </div>
 );
 
+const WebRTCVideoPlayer = ({ streamId, fallbackPhoto, altText }) => {
+  const videoRef = useRef(null);
+  const [isLive, setIsLive] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(true);
+
+  useEffect(() => {
+    let pc = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    });
+
+    pc.ontrack = (event) => {
+      if (videoRef.current && event.streams[0]) {
+        videoRef.current.srcObject = event.streams[0];
+        setIsLive(true);
+        setIsConnecting(false);
+      }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+        setIsLive(false);
+        setIsConnecting(false);
+      }
+    };
+
+    const connectPiStream = async () => {
+  try {
+    setIsConnecting(true);
+    pc.addTransceiver('video', { direction: 'recvonly' });
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
+    // Wait for ICE candidate gathering to complete before sending SDP
+    if (pc.iceGatheringState !== 'complete') {
+      await new Promise((resolve) => {
+        const checkState = () => {
+          if (pc.iceGatheringState === 'complete') {
+            pc.removeEventListener('icegatheringstatechange', checkState);
+            resolve();
+          }
+        };
+        pc.addEventListener('icegatheringstatechange', checkState);
+      });
+    }
+
+    const response = await fetch('http://10.191.250.61:8889/cam/whep', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/sdp' },
+      body: pc.localDescription.sdp,
+    });
+
+    if (!response.ok) throw new Error('WHEP server offline');
+
+    const answerSdp = await response.text();
+    await pc.setRemoteDescription(
+      new RTCSessionDescription({ type: 'answer', sdp: answerSdp })
+    );
+
+    setIsLive(true);
+  } catch (err) {
+    console.error('WHEP connection failed:', err);
+    setIsLive(false);
+  } finally {
+    setIsConnecting(false);
+  }
+};
+
+connectPiStream();
+    return () => {
+      pc.close();
+    };
+  }, [streamId]);
+
+  return (
+    <div className="relative w-full h-full bg-slate-950 overflow-hidden flex items-center justify-center">
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted
+        className={`w-full h-full object-cover ${isLive ? 'block' : 'hidden'}`}
+      />
+
+      {!isLive && (
+        <img src={fallbackPhoto} alt={altText} className="w-full h-full object-cover opacity-90" />
+      )}
+
+      <div className="absolute top-3 right-3 bg-slate-900/80 backdrop-blur-md px-2.5 py-1 rounded-full border border-slate-700/80 flex items-center gap-1.5 text-[10px] font-tech-mono font-bold text-slate-200 z-20">
+        <span className={`h-2 w-2 rounded-full ${isLive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-500'}`} />
+        {isLive ? 'LIVE WEBRTC' : isConnecting ? 'CONNECTING...' : 'STATIC SNAPSHOT'}
+      </div>
+    </div>
+  );
+};
+
 const NightVisionCameraBox = ({ camera }) => (
   <div className={`flex flex-col h-full select-none overflow-hidden p-3.5 ${clayBase.container}`}>
     <div className="flex items-center justify-between px-2 py-1 text-xs shrink-0 mb-1">
@@ -589,12 +665,16 @@ const NightVisionCameraBox = ({ camera }) => (
     </div>
 
     <div className={`relative flex-1 min-h-0 overflow-hidden ${clayBase.insetFrame}`}>
-      <img src={STATIC_PHOTOS.nightVision} alt="Night Vision Photo" className="w-full h-full object-cover" />
-      <div className="absolute bottom-3 right-3 bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-rose-500/50 flex items-center gap-2 text-rose-400 font-tech-mono text-xs font-bold">
+      <WebRTCVideoPlayer 
+        streamId="nv_stream" 
+        fallbackPhoto={STATIC_PHOTOS.nightVision} 
+        altText="Night Vision Camera Stream" 
+      />
+      <div className="absolute bottom-3 right-3 bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-rose-500/50 flex items-center gap-2 text-rose-400 font-tech-mono text-xs font-bold z-20">
         <AlertTriangle className="h-4 w-4 text-rose-500 animate-pulse" />
         STRUCTURAL CRACKS: {camera.cracksDetected} LOCATIONS
       </div>
-      <div className={`absolute top-3 left-3 text-xs font-tech-mono font-bold ${themeStyles.emerald.bg} ${themeStyles.emerald.shadow} px-3 py-1 rounded-full`}>
+      <div className={`absolute top-3 left-3 text-xs font-tech-mono font-bold ${themeStyles.emerald.bg} ${themeStyles.emerald.shadow} px-3 py-1 rounded-full z-20`}>
         {camera.res} | {camera.fps} FPS
       </div>
     </div>
@@ -618,12 +698,16 @@ const ThermalCameraBox = ({ camera }) => (
     </div>
 
     <div className={`relative flex-1 min-h-0 overflow-hidden ${clayBase.insetFrame}`}>
-      <img src={STATIC_PHOTOS.thermal} alt="Thermal Camera Photo" className="w-full h-full object-cover" />
-      <div className="absolute bottom-3 right-3 bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-cyan-500/50 flex items-center gap-2 text-cyan-400 font-tech-mono text-xs font-bold">
+      <WebRTCVideoPlayer 
+        streamId="thermal_stream" 
+        fallbackPhoto={STATIC_PHOTOS.thermal} 
+        altText="Thermal Camera Stream" 
+      />
+      <div className="absolute bottom-3 right-3 bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-cyan-500/50 flex items-center gap-2 text-cyan-400 font-tech-mono text-xs font-bold z-20">
         <UserCheck className="h-4 w-4 text-cyan-400" />
         HUMAN HEAT SIGNATURES: {camera.personsDetected}
       </div>
-      <div className={`absolute top-3 left-3 text-xs font-tech-body bg-[#eef2f9]/90 backdrop-blur-md p-2 rounded-2xl shadow-md border border-white/60 space-y-0.5`}>
+      <div className={`absolute top-3 left-3 text-xs font-tech-body bg-[#eef2f9]/90 backdrop-blur-md p-2 rounded-2xl shadow-md border border-white/60 space-y-0.5 z-20`}>
         <div className="text-slate-700 font-bold">MAX: <span className="text-rose-600 font-tech-mono font-bold">{camera.maxTemp}°C</span></div>
         <div className="text-slate-700 font-bold">AVG: <span className="text-indigo-600 font-tech-mono font-bold">{camera.avgTemp}°C</span></div>
       </div>
